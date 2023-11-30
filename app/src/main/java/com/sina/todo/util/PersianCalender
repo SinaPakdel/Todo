@@ -1,0 +1,210 @@
+fun persianToJulian(year: Long, month: Int, day: Int): Long {
+    return 365L * ((ceil((year - 474L).toDouble(), 2820.0) + 474L) - 1L) +
+            ((Math.floor((682L * (ceil((year - 474L).toDouble(), 2820.0) + 474L) - 110L) / 2816.0)).toLong()) +
+            (PersianCalendarConstants.PERSIAN_EPOCH - 1L) +
+            1029983L * (Math.floor((year - 474L) / 2820.0)).toLong() +
+            (if (month < 7) 31 * month else 30 * month + 6) + day
+}
+fun isPersianLeapYear(persianYear: Int): Boolean = ceil((38.0 + (ceil((persianYear - 474L).toDouble(), 2820.0) + 474L)) * 682.0, 2816.0) < 682L
+fun julianToPersian(julianDate: Long): Long {
+    val persianEpochInJulian = julianDate - persianToJulian(475L, 0, 1)
+    val cyear = ceil(persianEpochInJulian.toDouble(), 1029983.0)
+    val ycycle = if (cyear != 1029982L) Math.floor((2816.0 * cyear + 1031337.0) / 1028522.0).toLong() else 2820L
+    val year = 474L + 2820L * Math.floor(persianEpochInJulian.toDouble() / 1029983.0).toLong() + ycycle
+    val aux = (1L + julianDate) - persianToJulian(year, 0, 1)
+    val month = if (aux > 186L) Math.ceil((aux - 6L) / 30.0).toInt() - 1 else Math.ceil(aux / 31.0).toInt() - 1
+    val day = (julianDate - (persianToJulian(year, month, 1) - 1L)).toInt()
+    return (year shl 16) or ((month shl 8).toLong()) or day.toLong()
+}
+fun ceil(double1: Double, double2: Double): Long = (double1 - double2 * Math.floor(double1 / double2)).toLong()
+fun compare(persianCalendar1: PersianCalendar, persianCalendar2: PersianCalendar): Int {
+    val date1 = persianCalendar1.getPersianYear() * 10000 + persianCalendar1.getPersianMonth() * 100 + persianCalendar1.getPersianDay()
+    val date2 = persianCalendar2.getPersianYear() * 10000 + persianCalendar2.getPersianMonth() * 100 + persianCalendar2.getPersianDay()
+    return date1.compareTo(date2)
+}
+
+class PersianDateParser(private var dateString: String) {
+    private var delimiter: String = "/"
+    constructor(dateString: String, delimiter: String) : this(dateString) { this.delimiter = delimiter }
+    fun getPersianDate(context: Context): PersianCalendar {
+        checkDateStringInitialValidation()
+        val tokens = splitDateString(normalizeDateString(dateString))
+        val year = tokens[0].toInt()
+        val month = tokens[1].toInt()
+        val day = tokens[2].toInt()
+        checkPersianDateValidation(year, month, day)
+        val pCal = PersianCalendar(context)
+        pCal.setPersianDate(year, month, day)
+        return pCal
+    }
+
+    private fun checkPersianDateValidation(year: Int, month: Int, day: Int) {
+        if (year < 1)
+            throw RuntimeException("year is not valid")
+        if (month < 1 || month > 12)
+            throw RuntimeException("month is not valid")
+        if (day < 1 || day > 31)
+            throw RuntimeException("day is not valid")
+        if (month > 6 && day == 31)
+            throw RuntimeException("day is not valid")
+        if (month == 12 && day == 30 && !isPersianLeapYear(year))
+            throw RuntimeException("day is not valid $year is not a leap year")
+    }
+
+    private fun normalizeDateString(dateString: String): String = dateString
+    private fun splitDateString(dateString: String): Array<String> {
+        val tokens = dateString.split(delimiter.toRegex()).toTypedArray()
+        if (tokens.size != 3) throw RuntimeException("wrong date:$dateString is not a Persian Date or can not be parsed")
+        return tokens
+    }
+    private fun checkDateStringInitialValidation() { if (dateString == null) throw RuntimeException("input didn't assing please use setDateString()") }
+    fun getDateString(): String = dateString
+    fun setDateString(dateString: String) { this.dateString = dateString }
+    fun getDelimiter(): String = delimiter
+    fun setDelimiter(delimiter: String) { this.delimiter = delimiter }
+}
+
+object PersianCalendarConstants {
+    const val MILLIS_JULIAN_EPOCH: Long = -210866803200000L
+    const val MILLIS_OF_A_DAY: Long = 86400000L
+    const val PERSIAN_EPOCH: Long = 1948321
+    val persianMonthNames = arrayOf(
+        "\u0641\u0631\u0648\u0631\u062f\u06cc\u0646", // Farvardin
+        "\u0627\u0631\u062f\u06cc\u0628\u0647\u0634\u062a", // Ordibehesht
+        "\u062e\u0631\u062f\u0627\u062f", // Khordad
+        "\u062a\u06cc\u0631", // Tir
+        "\u0645\u0631\u062f\u0627\u062f", // Mordad
+        "\u0634\u0647\u0631\u06cc\u0648\u0631", // Shahrivar
+        "\u0645\u0647\u0631", // Mehr
+        "\u0622\u0628\u0627\u0646", // Aban
+        "\u0622\u0630\u0631", // Azar
+        "\u062f\u06cc", // Dey
+        "\u0628\u0647\u0645\u0646", // Bahman
+        "\u0627\u0633\u0641\u0646\u062f" // Esfand
+    )
+    val persianWeekDays = arrayOf(
+        "\u0634\u0646\u0628\u0647", // Shanbeh
+        "\u06cc\u06a9\u200c\u0634\u0646\u0628\u0647", // Yekshanbeh
+        "\u062f\u0648\u0634\u0646\u0628\u0647", // Doshanbeh
+        "\u0633\u0647\u200c\u0634\u0646\u0628\u0647", // Sehshanbeh
+        "\u0686\u0647\u0627\u0631\u0634\u0646\u0628\u0647", // Chaharshanbeh
+        "\u067e\u0646\u062c\u200c\u0634\u0646\u0628\u0647", // Panjshanbeh
+        "\u062c\u0645\u0639\u0647" // jome
+    )
+}
+class PersianCalendar : GregorianCalendar {
+    private var context: Context? = null
+    private var persianYear = 0
+    private var persianMonth = 0
+    private var persianDay = 0
+    private var delimiter = "/"
+
+    private fun convertToMilis(julianDate: Long): Long =
+        PersianCalendarConstants.MILLIS_JULIAN_EPOCH + julianDate * PersianCalendarConstants.MILLIS_OF_A_DAY +
+                ceil(
+                    (timeInMillis - PersianCalendarConstants.MILLIS_JULIAN_EPOCH).toDouble(),
+                    PersianCalendarConstants.MILLIS_OF_A_DAY.toDouble()
+                )
+
+    constructor(context: Context?, millis: Long) {
+        this.context = context
+        setTimeInMillis(millis)
+    }
+
+    constructor(millis: Long) { setTimeInMillis(millis) }
+    constructor(context: Context?) {
+        this.context = context
+        timeZone = TimeZone.getTimeZone("GMT")
+    }
+    protected fun calculatePersianDate() {
+        val julianDate =
+            (Math.floor((timeInMillis - PersianCalendarConstants.MILLIS_JULIAN_EPOCH).toDouble()) / PersianCalendarConstants.MILLIS_OF_A_DAY).toLong()
+        val PersianRowDate = julianToPersian(julianDate)
+        val year = PersianRowDate shr 16
+        persianYear = if (year > 0) year.toInt() else year.toInt() - 1
+        persianMonth = (PersianRowDate and 0xff00 shr 8).toInt()
+        persianDay = (PersianRowDate and 0xff).toInt()
+    }
+    fun isPersianLeapYear(): Boolean = isPersianLeapYear(persianYear)
+    fun setPersianDate(persianYear: Int, persianMonth: Int, persianDay: Int) {
+        this.persianYear = persianYear
+        this.persianMonth = persianMonth + 1
+        this.persianDay = persianDay
+        setTimeInMillis(
+            convertToMilis(
+                persianToJulian(
+                    (if (this.persianYear > 0) this.persianYear else this.persianYear + 1).toLong(),
+                    this.persianMonth - 1,
+                    this.persianDay
+                )
+            )
+        )
+    }
+    fun getPersianYear(): Int = persianYear
+    fun getPersianMonth(): Int = persianMonth
+    fun getPersianMonthName(): String = context!!.resources.getStringArray(R.array.month_name)[persianMonth]
+    fun getPersianDay(): Int = persianDay
+    fun getPersianWeekDayName(): String {
+        return when (get(Calendar.DAY_OF_WEEK)) {
+            Calendar.SATURDAY -> PersianCalendarConstants.persianWeekDays[0]
+            Calendar.SUNDAY -> PersianCalendarConstants.persianWeekDays[1]
+            Calendar.MONDAY -> PersianCalendarConstants.persianWeekDays[2]
+            Calendar.TUESDAY -> PersianCalendarConstants.persianWeekDays[3]
+            Calendar.WEDNESDAY -> PersianCalendarConstants.persianWeekDays[4]
+            Calendar.THURSDAY -> PersianCalendarConstants.persianWeekDays[5]
+            else -> PersianCalendarConstants.persianWeekDays[6]
+        }
+    }
+    fun getPersianLongDate(): String = getPersianWeekDayName() + "  " + persianDay + "  " + getPersianMonthName() + "  " + persianYear
+    fun getPersianLongDateAndTime(): String = getPersianLongDate() + " ساعت " + get(Calendar.HOUR_OF_DAY) + ":" + get(Calendar.MINUTE) + ":" + get(Calendar.SECOND)
+    fun getPersianShortTime(): String = formatToMilitary(get(Calendar.HOUR_OF_DAY)) + ":" + formatToMilitary(get(Calendar.MINUTE))
+    fun getPersianShortDate(): String =
+        "" + formatToMilitary(persianYear) + delimiter + formatToMilitary(getPersianMonth() + 1) + delimiter + formatToMilitary(
+            persianDay
+        )
+    private fun formatToMilitary(number: Int): String = if (number < 10) "0$number" else number.toString()
+    fun addPersianDate(field: Int, amount: Int) {
+        if (amount == 0) return
+        if (field < 0 || field >= ZONE_OFFSET) throw IllegalArgumentException()
+        if (field == YEAR) {
+            setPersianDate(persianYear + amount, getPersianMonth() + 1, persianDay)
+            return
+        } else if (field == MONTH) {
+            val newYear = persianYear + (getPersianMonth() + 1 + amount) / 12
+            val newMonth = (getPersianMonth() + 1 + amount) % 12
+            setPersianDate(newYear, newMonth, persianDay)
+            return
+        }
+        add(field, amount)
+        calculatePersianDate()
+    }
+    fun parse(dateString: String) {
+        val p = context?.let { PersianDateParser(dateString, delimiter).getPersianDate(it) }
+        if (p != null) setPersianDate(p.persianYear, p.persianMonth, p.persianDay)
+    }
+
+    fun getDelimiter(): String = delimiter
+    fun setDelimiter(delimiter: String) {
+        this.delimiter = delimiter
+    }
+
+    override fun toString(): String {
+        val str = super.toString()
+        return "${str.substring(0, str.length - 1)},PersianDate=${getPersianShortDate()}]"
+    }
+
+    override fun equals(other: Any?): Boolean = super.equals(other)
+    override fun hashCode(): Int = super.hashCode()
+    override fun set(field: Int, value: Int) {
+        super.set(field, value)
+        calculatePersianDate()
+    }
+    override fun setTimeInMillis(millis: Long) {
+        super.setTimeInMillis(millis)
+        calculatePersianDate()
+    }
+    override fun setTimeZone(zone: TimeZone) {
+        super.setTimeZone(zone)
+        calculatePersianDate()
+    }
+}
